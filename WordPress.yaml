@@ -99,7 +99,7 @@ Mappings:
       Arch: HVM64
   AWSRegionArch2AMI:
     us-east-1:
-      HVM64: ami-032930428bf1abbff
+      HVM64: ami-05ffe3c48a9991133
 Resources:
   WebServer:
     Type: AWS::EC2::Instance
@@ -214,14 +214,14 @@ Resources:
                       <!-- By default, redirect to the installed WordPress -->
                    </BODY></HTML>
           packages:
-            yum:
+            dnf:
               httpd24: []
               mysql: []
               mysql-devel: []
               mysql-libs: []
               mysql-server: []
-              php73: []
-              php73-mysqlnd: []
+              php8.4: []
+              php8.4-mysqlnd: []
           services:
             sysvinit:
               httpd:
@@ -251,9 +251,9 @@ Resources:
         'Fn::Base64': !Sub >
           #!/bin/bash -xe
 
-          yum update -y
+          dnf update -y
 
-          yum update -y aws-cfn-bootstrap
+          dnf update -y aws-cfn-bootstrap
 
           /opt/aws/bin/cfn-init -v --stack ${AWS::StackId} --resource WebServer
           --configsets wordpress_install --region ${AWS::Region}
