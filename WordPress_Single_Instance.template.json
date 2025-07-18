@@ -74,7 +74,7 @@
   },
 
   "AWSInstanceType2NATArch" : {
-    "t2.micro"    : { "Arch" : "NATHVM64"  },
+    "t2.micro"    : { "Arch" : "NATHVM64"  }
   }
 ,
     "AWSRegionArch2AMI" : {      
