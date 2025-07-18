@@ -124,15 +124,13 @@ Parameters:
     #Description: Web server to install
     AllowedValues:
       - "Apache"
-      - "Nginx"
     Default: "Apache"
   databaseOption:
     Type: String
     #Description: Database to install
     AllowedValues:
       - "MariaDB"
-      - "MySQL8.0"
-      - "MySQL8.4"
+      # - "MySQL8.4"
     Default: "MariaDB"
   phpVersion:
     Type: String
