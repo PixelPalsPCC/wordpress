@@ -1,50 +1,67 @@
 AWSTemplateFormatVersion: 2010-09-09
-Metadata:
-  License: Apache-2.0
-  "AWS::CloudFormation::Interface":
-    ParameterGroups:
-      - Label:
-          default: Database
-        Parameters:
-          - DBName
-          - DBUser
-          - DBPassword
-          - DBRootPassword
-      - Label:
-          default: Instance connection
-        Parameters:
-          - InstanceType
-          - KeyName
-          - SSHLocation
-  "AWS::CloudFormation::Designer":
-    55691afd-aff6-4ff2-83ee-5c4044f47d96:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 60
-        "y": 90
-      z: 1
-      embeds: []
-    b3251c3b-dd69-4685-a7a1-b75c0e4ea0e1:
-      size:
-        width: 60
-        height: 60
-      position:
-        x: 180
-        "y": 90
-      z: 1
-      embeds: []
-      isassociatedwith:
-        - 55691afd-aff6-4ff2-83ee-5c4044f47d96
-Description:
-  "AWS CloudFormation Sample Template WordPress_Single_Instance: WordPress
+Description: AWS CloudFormation Sample Template WordPressSingle Instance. WordPress
   is web software you can use to create a beautiful website or blog. This template
   installs WordPress with a local MySQL database for storage. It demonstrates using
   the AWS CloudFormation bootstrap scripts to deploy WordPress. **WARNING** This template
   creates an Amazon EC2 instance. You will be billed for the AWS resources used if
-  you create a stack from this template."
+  you create a stack from this template. Created July 2025 (tag:AL2023)
+Metadata:
+  License:
+    Description: >
+      Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+      SPDX-License-Identifier: MIT-0
+
+      Permission is hereby granted, free of charge, to any person obtaining a copy of this
+      software and associated documentation files (the "Software"), to deal in the Software
+      without restriction, including without limitation the rights to use, copy, modify,
+      merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+      permit persons to whom the Software is furnished to do so.
+
+      THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+      INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+      PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+      HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+      OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+      SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+  AWS::CloudFormation::Interface:
+   ParameterGroups:
+    - Label:
+        default: Database
+      Parameters:
+        - DBName
+        - DBUser
+        - DBPassword
+        - DBRootPassword
+    - Label:
+        default: EC2 Instance
+      Parameters:
+        - InstanceType
+        - ec2Name
+        - SSHLocation
+    - Label:
+        default: LAMP
+      Parameters:
+        - webOption
+        - phpVersion
+        - databaseOption
+   ParameterLabels:
+      InstanceType:
+        default: "Instance type (x86_64 or arm64)"
+      ec2Name:
+        default: "WordPress Server"
+      displayPublicIP:
+        default: "EC2 in public subnet with public IP assigned?"
+      webOption:
+        default: "Web server to install"
+      databaseOption:
+        default: "Database server to install"
+      phpVersion:
+        default: "8.4"
 Parameters:
+  ec2Name:
+    Type: String
+    #Description: EC2 instance name
+    Default: WordPress on Amazon Linux 2023
   DBName:
     AllowedPattern: "[a-zA-Z][a-zA-Z0-9]*"
     ConstraintDescription:
@@ -79,18 +96,6 @@ Parameters:
     MaxLength: "16"
     MinLength: "1"
     Type: String
-  ec2KeyPair:
-    Type: AWS::EC2::KeyPair::KeyName
-    Description: https://console.aws.amazon.com/ec2/#KeyPairs
-    ConstraintDescription: Specify a key pair
-    AllowedPattern: ".+"
-  InstanceType:
-    AllowedValues:
-      - t2.micro
-    ConstraintDescription: must be a valid EC2 instance type.
-    Default: t2.micro
-    Description: T2 WebServer EC2 instance type
-    Type: String
   SSHLocation:
     AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
     ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
@@ -99,41 +104,244 @@ Parameters:
     MaxLength: "18"
     MinLength: "9"
     Type: String
+  InstanceType:
+    Type: String
+    Description: https://console.aws.amazon.com/ec2/#InstanceTypes
+    AllowedPattern: "^[a-z\\-\\d\\.]+$"
+    ConstraintDescription: Specify valid EC2 instance type
+    Default: t3.micro
+  ec2KeyPair:
+      Type: AWS::EC2::KeyPair::KeyName
+      Description: https://console.aws.amazon.com/ec2/#KeyPairs
+      ConstraintDescription: Specify a key pair
+      AllowedPattern: ".+"
+  webOption:
+    Type: String
+    #Description: Web server to install
+    AllowedValues:
+      - "Apache"
+    Default: "Apache"
+  databaseOption:
+    Type: String
+    #Description: Database to install
+    AllowedValues:
+      - "MariaDB"
+    Default: "MariaDB"
+  phpVersion:
+    Type: String
+    #Description: PHP version to install
+    AllowedValues:
+      - "php8.1"
+      - "php8.2"
+      - "php8.3"
+      - "php8.4"
+      - "none"
+    Default: "php8.4"
 Mappings:
   AWSInstanceType2Arch:
-    t2.micro:
+    t3.micro:
       Arch: HVM64
   AWSRegionArch2AMI:
     us-east-1:
-      HVM64: ami-0150ccaf51ab55a51
+      HVM64: ami-0fa3fe0fa7920f68e      
 Resources:
-  WebServer:
+  ec2Instance:
     Type: AWS::EC2::Instance
     CreationPolicy:
       ResourceSignal:
-        Timeout: PT45M
+        Timeout: PT75M
     Metadata:
+      Comment: Install Update files
       AWS::CloudFormation::Init:
         configSets:
+          php_install:
+            - 01_php_install
+          lamp_install:
+            - 02_lamp_install
           wordpress_install:
             - install_cfn
             - install_wordpress
             - configure_wordpress
-        configure_wordpress:
+        01_php_install:
+          files:
+            "/root/install-php.sh":
+              content: !Sub |
+                #!/bin/bash
+                mkdir -p /tmp/cfn
+                cd /tmp/cfn
+
+                export PHP="${phpVersion}"
+                case $PHP in
+                  none)
+                    ;;
+                  *)
+                    # Will install httpd
+                    dnf install -q -y ${phpVersion}
+                    dnf install -q -y ${phpVersion}-{cli,fpm,opcache}
+                    dnf install -q -y ${phpVersion}-{mysqlnd,pgsql,pdo,dba}
+                    dnf install -q -y ${phpVersion}-{xml,soap,ldap,intl}
+                    dnf install -q -y ${phpVersion}-{mbstring,bcmath,gd,enchant,tidy}
+
+                    # PHP.INI
+                    cp /etc/php.ini /etc/php.ini."`date +"%Y-%m-%d"`"
+                    # https://docs.moodle.org/405/en/Environment_-_max_input_vars
+                    sed -i "/^;max_input_vars/a max_input_vars=5000" /etc/php.ini
+                    sed -i 's/memory_limit =.*/memory_limit = 256M/' /etc/php.ini
+                    sed -i 's/upload_max_filesize =.*/upload_max_filesize = 2G/' /etc/php.ini
+                    sed -i 's/post_max_size =.*/post_max_size = 2G/' /etc/php.ini
+
+                    cp /etc/php-fpm.d/www.conf /etc/php-fpm.d/www.conf."`date +"%Y-%m-%d"`"
+                    # https://www.php.net/manual/en/class.sessionhandler.php
+                    if (! echo WordPress | grep -q -i "moodle"); then # https://docs.moodle.org/405/en/PHP#PHP_Settings
+                      sed -i "s/^php_value\[session.save_handler/;&/" /etc/php-fpm.d/www.conf
+                      sed -i "/^;php_value\[session.save_handler/a php_value[session.save_handler] = redis" /etc/php-fpm.d/www.conf
+                      sed -i "s/^php_value\[session.save_path/;&/" /etc/php-fpm.d/www.conf
+                      sed -i '/^;php_value\[session.save_path/a php_value[session.save_path] = tcp://127.0.0.1:6379' /etc/php-fpm.d/www.conf
+                    fi
+
+
+                    systemctl enable php-fpm
+                    systemctl restart php-fpm
+
+                    ;;
+                esac
+
+                rm -f ${!0}
+              mode: "000740"
+              owner: "root"
+              group: "root"
+            "/root/index.php":
+              content: |
+                <?php phpinfo(); ?>
+              mode: "000644"
+              owner: "root"
+              group: "root"
           commands:
-            01_set_mysql_root_password:
-              command: !Sub |
-                mysqladmin -u root password '${DBRootPassword}'
-              test: !Sub |
-                $(mysql ${DBName} -u root --password='${DBRootPassword}' >/dev/null 2>&1 </dev/null); (( $? != 0 ))
-            02_create_database:
-              command: !Sub |
-                mysql -u root --password='P@ssw0rd' < /tmp/setup.mysql
-              test: !Sub |
-                $(mysql ${DBName} -u root --password='${DBRootPassword}' >/dev/null 2>&1 </dev/null); (( $? !=0))
-            03_configure_wordpress:
-              command: /tmp/create-wp-config
-              cwd: /wordpress
+            install:
+              command: "/root/install-php.sh > /var/log/install-php.log 2>&1"
+              ignoreErrors: "true"
+        02_lamp_install:
+          files:
+            "/root/install-lamp.sh":
+              content: !Sub |
+                #!/bin/bash
+                mkdir -p /tmp/cfn
+                cd /tmp/cfn
+
+                # Web server
+                export WEB="${webOption}"
+                case $WEB in
+                  Apache)
+                    dnf install -q -y httpd mod_ssl mod_fcgid
+                    sudo systemctl enable httpd
+
+                    # virtual host: for Certbot
+                    sudo cat << EoF > /etc/httpd/conf.d/www.conf
+                <VirtualHost *:80>
+                  ServerAdmin webmaster@localhost
+                  DocumentRoot /var/www/html
+                </VirtualHost>
+                EoF
+
+                cp /root/index.php /var/www/html/
+
+                # Change permissions and ownership
+                sudo usermod -a -G apache ec2-user
+                sudo chown -R apache:apache /var/www/html
+                sudo chmod -R 2775 /var/www/html
+                sudo find /var/www/html -type d -exec sudo chmod 2775 {} \;
+                sudo find /var/www/html -type f -exec sudo chmod 0664 {} \;
+
+                sudo systemctl restart httpd
+                    ;;
+                esac
+
+                # Database
+                export DBOption="${databaseOption}"
+                case $DBOption in
+                  MySQL8.0) # https://dev.mysql.com/downloads/repo/yum/
+                    # https://dev.mysql.com/doc/refman/8.0/en/checking-rpm-signature.html
+                    # rpm --import https://repo.mysql.com/RPM-GPG-KEY-mysql-2022
+
+                    # https://dev.mysql.com/doc/refman/8.0/en/linux-installation-yum-repo.html
+                    dnf install -q -y https://repo.mysql.com/mysql80-community-release-el9-5.noarch.rpm
+                    dnf install -q -y mysql-community-server
+                    if (ec2-metadata -t | grep -q large$); then
+                      sed -i '/^\[mysqld\]/a innodb_buffer_pool_size=1G' /etc/my.cnf
+                      mysqld --validate-config
+                    fi
+
+                    systemctl enable --now mysqld
+                    ;;
+                  MySQL8.4) # https://dev.mysql.com/downloads/repo/yum/
+                    # https://dev.mysql.com/doc/refman/8.4/en/checking-rpm-signature.html
+                    rpm --import https://repo.mysql.com/RPM-GPG-KEY-mysql-2022
+
+                    # https://dev.mysql.com/doc/refman/8.4/en/linux-installation-yum-repo.html
+                    dnf install -q -y https://repo.mysql.com/mysql84-community-release-el9-1.noarch.rpm
+                    dnf install -q -y mysql-community-server
+                    if (ec2-metadata -t | grep -q large$); then
+                      sed -i '/^\[mysqld\]/a innodb_buffer_pool_size=1G' /etc/my.cnf
+                      mysqld --validate-config
+                    fi
+                    systemctl enable --now mysqld
+
+                    ;;
+                  MariaDB) # https://github.com/amazonlinux/amazon-linux-2023/issues/571
+                    dnf install -q -y mariadb1011-server
+                    if (ec2-metadata -t | grep -q large$); then
+                      sed -i '/^\[mysqld\]/a innodb_buffer_pool_size=1G' /etc/my.cnf.d/mariadb-server.cnf
+                    fi
+                    systemctl enable --now mariadb
+
+                    ;;
+                esac
+
+                # create database and user
+                if (which mysql); then
+                  systemctl start mysqld
+                  export DBName=${DBName}
+                  export DBUser=${DBUser}
+
+                  # database credentials in user home directory
+                  export DB_CREDS_FILE="/home/ec2-user/database-credentials"
+                  echo "Application Stack: WordPress" >> $DB_CREDS_FILE
+                  echo "Database: $DBName" >> $DB_CREDS_FILE
+                  echo "User: $DBUser" >>$DB_CREDS_FILE
+                    
+                  export DBPassword=${DBPassword}
+                  echo "User password = $DBPassword" >> $DB_CREDS_FILE
+                  chown ec2-user:ec2-user $DB_CREDS_FILE
+                  chmod og-rwx $DB_CREDS_FILE
+
+                  # Create the WordPress database
+                  sudo mysql -e "CREATE DATABASE ${DBName};"
+                  # Create a database user and grant privileges
+                  sudo mysql -e "CREATE USER '${DBUser}'@'localhost' IDENTIFIED BY
+                  '${DBPassword}';"
+                  sudo mysql -e "GRANT ALL PRIVILEGES ON ${DBName}.* TO
+                  '${DBUser}'@'localhost';"
+                  sudo mysql -e "FLUSH PRIVILEGES;"
+                  sudo mysql -e "exit"    
+
+                  # download wordpress
+                  cd /tmp/cfn
+                  sudo curl -s -L -O https://wordpress.org/latest.tar.gz
+                  sudo tar -xf latest.tar.gz
+                  sudo rsync -r /tmp/cfn/wordpress/ /var/www/html
+                  sudo chown -R apache:apache /var/www/html
+                  sudo chmod g+rw -R /var/www/html
+              
+                fi
+
+                rm -f ${!0}
+              mode: "000740"
+              owner: "root"
+              group: "root"
+          commands:
+            install:
+              command: "/root/install-lamp.sh > /var/log/install-lamp.log 2>&1"
+              ignoreErrors: "true"
         install_cfn:
           files:
             /etc/cfn/cfn-hup.conf:
@@ -156,7 +364,7 @@ Resources:
                 --resource WebServer --configsets wordpress_install --url
                 https://stackbuilder.amazonaws.com
 
-                cd /var/www/html/wordpress/
+                cd /var/www/html/
                 chmod +x ./ip.sh
                 ./ip.sh
               group: root
@@ -176,33 +384,33 @@ Resources:
               content: !Sub >
                 #!/bin/bash -xe
 
-                chown -R apache:root  /var/www/html/wordpress
+                sudo chown -R apache:apache  /var/www/html
 
-                cp /var/www/html/wordpress/wp-config-sample.php
-                /var/www/html/wordpress/wp-config.php
+                sudo chown -R apache:apache  /var/www/html
 
-                sed -i "s/'database_name_here'/'${DBName}'/g" wp-config.php
+                sudo cp /var/www/html/wp-config-sample.php /var/www/html/wp-config.php
 
-                sed -i "s/'username_here'/'${DBUser}'/g" wp-config.php
+                sudo sed -i "s/'database_name_here'/'${DBName}'/g" wp-config.php
 
-                sed -i "s/'password_here'/'${DBPassword}'/g" wp-config.php
-              group: root
+                sudo sed -i "s/'username_here'/'${DBUser}'/g" wp-config.php
+
+                sudo sed -i "s/'password_here'/'${DBPassword}'/g" wp-config.php
+              group: apache
               mode: "000500"
-              owner: root
+              owner: apache
             /tmp/setup.mysql:
               content: !Sub >
-                CREATE DATABASE ${DBName};
+                # CREATE DATABASE ${DBName};
 
-                CREATE USER '${DBUser}'@'localhost' IDENTIFIED BY
-                '${DBPassword}';
+                # CREATE USER '${DBUser}'@'localhost' IDENTIFIED BY '${DBPassword}';
 
-                GRANT ALL ON ${DBName}.* TO '${DBUser}'@'localhost';
+                # GRANT ALL ON ${DBName}.* TO '${DBUser}'@'localhost';
 
-                FLUSH PRIVILEGES;
+                # FLUSH PRIVILEGES;
               group: root
               mode: "000400"
               owner: root
-            /var/www/html/wordpress/.htaccess:
+            /var/www/html/.htaccess:
               content: |
                 php_value upload_max_filesize 64M
                 php_value post_max_size 128M
@@ -214,20 +422,20 @@ Resources:
                 <!DOCTYPE html>
                 <HTML><HEAD>
                       <TITLE>HTML Meta Tag</title>
-                      <META HTTP-EQUIV= "refresh" CONTENT= "0; url = /wordpress" />
+                      <META HTTP-EQUIV= "refresh" CONTENT= "0; url = /" />
                    </HEAD><BODY>
-                      <P>Redirect to <A HREF=/wordpress>WordPress</A>.</P>
+                      <P>Redirect to <A HREF=/>WordPress</A>.</P>
                       <!-- By default, redirect to the installed WordPress -->
                    </BODY></HTML>
-          packages:
-            dnf:
-              httpd24: []
-              mysql: []
-              mysql-devel: []
-              mysql-libs: []
-              mysql-server: []
-              php8.4: []
-              php8.4-mysqlnd: []
+          # packages:
+          #   dnf:
+          #     httpd24: []
+          #     mysql: []
+          #     mysql-devel: []
+          #     mysql-libs: []
+          #     mysql-server: []
+          #     php8.4: []
+          #     php8.4-mysqlnd: []
           services:
             sysvinit:
               httpd:
@@ -236,10 +444,23 @@ Resources:
               mysqld:
                 enabled: true
                 ensureRunning: true
-          sources:
-            /var/www/html: "http://pixelpalspcc.com/pixelpals-wordpress-6.3.2.tar.gz"
-      "AWS::CloudFormation::Designer":
-        id: b3251c3b-dd69-4685-a7a1-b75c0e4ea0e1
+          # sources:
+          #   /var/www/html: "https://wordpress.org/latest.tar.gz"
+        configure_wordpress:
+          commands:
+            # 01_set_mysql_root_password:
+            #   command: !Sub |
+            #     mysqladmin -u root password '${DBRootPassword}'
+            #   test: !Sub |
+            #     $(mysql ${DBName} -u root --password='${DBRootPassword}' >/dev/null 2>&1 </dev/null); (( $? != 0 ))
+            # 02_create_database:
+            #   command: !Sub |
+            #     mysql -u root --password='P@ssw0rd' < /tmp/setup.mysql
+            #   test: !Sub |
+            #     $(mysql ${DBName} -u root --password='${DBRootPassword}' >/dev/null 2>&1 </dev/null); (( $? !=0))
+            03_configure_wordpress:
+              command: /tmp/create-wp-config
+              cwd: /
     Properties:
       ImageId: !FindInMap
         - AWSRegionArch2AMI
@@ -248,24 +469,50 @@ Resources:
           - AWSInstanceType2Arch
           - !Ref InstanceType
           - Arch
-      InstanceType:
-        Ref: InstanceType
+      InstanceType: !Ref InstanceType
       KeyName: !Ref ec2KeyPair
       SecurityGroups:
         - Ref: WebServerSecurityGroup
       UserData:
-        "Fn::Base64": !Sub >
-          #!/bin/bash -xe
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          mkdir -p /tmp/cfn
+          cd /tmp/cfn
+
 
           dnf update -y
 
           dnf update -y aws-cfn-bootstrap
+          
+          dnf clean all
+          dnf install -q -y wget tmux unzip tar curl-minimal sed
 
-          /opt/aws/bin/cfn-init -v --stack ${AWS::StackId} --resource WebServer
-          --configsets wordpress_install --region ${AWS::Region}
+          export CFN_INIT="/opt/aws/bin/cfn-init"
 
-          /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackId} --resource
-          WebServer --region ${AWS::Region}
+          # Install PHP
+          $CFN_INIT -v --stack ${AWS::StackName} --resource ec2Instance --region ${AWS::Region} -c php_install
+
+          # Install rest of LAMP stack components
+          $CFN_INIT -v --stack ${AWS::StackName} --resource ec2Instance --region ${AWS::Region} -c lamp_install
+
+          $CFN_INIT -v --stack ${AWS::StackId} --resource ec2Instance --region ${AWS::Region} -c wordpress_install
+
+          # /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource ec2Instance --region ${AWS::Region}
+          
+          #
+          systemctl set-default multi-user.target
+          systemctl daemon-reload
+
+          sleep 1 && reboot
+      Tags:
+        - Key: Name
+          Value: !Ref ec2Name
+        - Key: StackName
+          Value: !Ref AWS::StackName
+        - Key: StackId
+          Value: !Ref AWS::StackId
+        - Key: GitHub
+          Value: https://github.com/aws-samples/ec2-lamp-server
   WebServerSecurityGroup:
     Type: "AWS::EC2::SecurityGroup"
     Properties:
@@ -280,13 +527,19 @@ Resources:
           FromPort: 22
           IpProtocol: tcp
           ToPort: 22
-    Metadata:
-      "AWS::CloudFormation::Designer":
-        id: 55691afd-aff6-4ff2-83ee-5c4044f47d96
 Outputs:
+  EC2console:
+    Description: EC2 console
+    Value: !Sub "https://${AWS::Region}.console.aws.amazon.com/ec2/home?region=${AWS::Region}#InstanceDetails:instanceId=${ec2Instance}"
+  EC2instanceID:
+    Description: EC2 Instance ID
+    Value: !Ref ec2Instance
   PublicIP:
     Description: EC2 public IP
-    Value: !GetAtt WebServer.PublicIp
-  WebsiteURL:
-    Description: WordPress Website
-    Value: !Sub "http://${WebServer.PublicDnsName}/wordpress"
+    Value: !GetAtt ec2Instance.PublicIp
+  WebsiteAddress:
+    Description: Website
+    Value: !Sub "http://${ec2Instance.PublicIp}"
+  WordPressUrl:
+    Description: WordPress
+    Value: !Sub "http://${ec2Instance.PublicIp}/"
