@@ -1,10 +1,11 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: AWS CloudFormation Sample Template WordPressSingle Instance. WordPress
+Description: WARNING: This stack only runs for 75 minutes and then deletes all the resources it creates.
+  AWS CloudFormation Sample Template WordPressSingle Instance. WordPress
   is web software you can use to create a beautiful website or blog. This template
   installs WordPress with a local MySQL database for storage. It demonstrates using
   the AWS CloudFormation bootstrap scripts to deploy WordPress. **WARNING** This template
   creates an Amazon EC2 instance. You will be billed for the AWS resources used if
-  you create a stack from this template. Created July 2025 (tag:AL2023)
+  you create a stack from this template. Updated December 2025 (tag:AL2023)
 Metadata:
   License:
     Description: >
