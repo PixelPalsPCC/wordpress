@@ -1,5 +1,7 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: WARNING: THIS STACK ONLY RUNDS FOR 75 MINUTES AND THEN DELETES ALL THE RESOURCES IT CREATES.
+  THIS STACK REQUIRES AN AMI IN THE US-EAST-2 REGION. IT USES AMAZON LINUX 2023 
+  WHICH MAY NEED TO BE UPDATED IN THE FUTURE. SEE THE AMI MAPPINGS SECTION FOR MORE DETAILS. 
   AWS CloudFormation Sample Template WordPressSingle Instance. WordPress
   is web software you can use to create a beautiful website or blog. This template
   installs WordPress with a local MariaDB (MySQL-compatible) database for storage. It demonstrates using
