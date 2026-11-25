@@ -141,6 +141,12 @@ Mappings:
   AWSRegionArch2AMI:
     us-east-2:
       HVM64: ami-01e4a7224fcbfe81f      
+      # To get the latest AMI for US-East-2 region for this server, this AWS CLI command can be used:
+      # aws ssm get-parameter \
+      #  --name "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64" \
+      #  --region us-east-2 \
+      #  --query "Parameter.Value" \
+      #  --output text
 Resources:
   ec2Instance:
     Type: AWS::EC2::Instance
