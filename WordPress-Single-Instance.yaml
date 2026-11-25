@@ -1,11 +1,11 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: WARNING: This stack only runs for 75 minutes and then deletes all the resources it creates.
+Description: WARNING: THIS STACK ONLY RUNDS FOR 75 MINUTES AND THEN DELETES ALL THE RESOURCES IT CREATES.
   AWS CloudFormation Sample Template WordPressSingle Instance. WordPress
   is web software you can use to create a beautiful website or blog. This template
-  installs WordPress with a local MySQL database for storage. It demonstrates using
+  installs WordPress with a local MariaDB (MySQL-compatible) database for storage. It demonstrates using
   the AWS CloudFormation bootstrap scripts to deploy WordPress. **WARNING** This template
-  creates an Amazon EC2 instance. You will be billed for the AWS resources used if
-  you create a stack from this template. Updated December 2025 (tag:AL2023)
+  creates an Amazon EC2 instance. You will likely be billed for the AWS resources used if
+  you create a stack from this template. Created July 2025. Updated December 2025. Updated November 2026. (tag:AL2023)
 Metadata:
   License:
     Description: >
@@ -110,7 +110,7 @@ Parameters:
     Description: https://console.aws.amazon.com/ec2/#InstanceTypes
     AllowedPattern: "^[a-z\\-\\d\\.]+$"
     ConstraintDescription: Specify valid EC2 instance type
-    Default: t2.micro
+    Default: t3.micro
 
   webOption:
     Type: String
@@ -136,11 +136,11 @@ Parameters:
     Default: "php8.4"
 Mappings:
   AWSInstanceType2Arch:
-    t2.micro:
+    t3.micro:
       Arch: HVM64
   AWSRegionArch2AMI:
-    us-east-1:
-      HVM64: ami-0150ccaf51ab55a51      
+    us-east-2:
+      HVM64: ami-01e4a7224fcbfe81f      
 Resources:
   ec2Instance:
     Type: AWS::EC2::Instance
